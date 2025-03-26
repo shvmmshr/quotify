@@ -15,9 +15,7 @@ const HeroSection: React.FC = () => {
     const lenis = new Lenis({
       duration: 1.2,
       easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      direction: "vertical",
-      gestureDirection: "vertical",
-      smooth: true,
+      orientation: "vertical",
     });
 
     function raf(time: number) {
@@ -227,8 +225,8 @@ const HeroSection: React.FC = () => {
                       theme === "dark" ? "text-gray-100" : "text-gray-800"
                     }`}
                   >
-                    "The future belongs to those who believe in the beauty of
-                    their dreams."
+                    &quot;The future belongs to those who believe in the beauty
+                    of their dreams.&quot;
                   </p>
                   <p className="text-sm md:text-base text-orange-500 mt-2 font-medium">
                     - Eleanor Roosevelt

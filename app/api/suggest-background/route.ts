@@ -39,50 +39,10 @@ export async function POST(request: Request) {
         return NextResponse.json({ backgrounds: pexelsBackgrounds });
 
       case "openai":
-        // Uncomment this section if you want to use OpenAI
-        /*
-        const response = await openai.chat.completions.create({
-          model: "gpt-4",
-          messages: [
-            {
-              role: "system",
-              content: `Based on the following quote and its sentiment, suggest 4 background styles that would complement it well.
-              Return a JSON array of objects, each with these properties:
-                - type: either "color", "gradient", or "image"
-                - value: for color - a hex color code, for gradient - a CSS gradient string, for image - a generic description that could be used for image search
-                - description: a brief description of why this background fits the quote
-                
-                Return only valid JSON with no additional text or explanation.`,
-            },
-            {
-              role: "user",
-              content: `Quote: "${text}"\nSentiment: ${sentiment || "unknown"}`,
-            },
-          ],
-          temperature: 0.7,
-          response_format: { type: "json_object" },
-        });
-
-        const responseContent = response.choices[0].message.content;
-        if (!responseContent) {
-          throw new Error("No response from OpenAI");
-        }
-
-        const data = JSON.parse(responseContent);
-        
-        // Process image suggestions to convert descriptions to actual image URLs
-        // This would require an image search API in a real implementation
-        const backgrounds = data.backgrounds.map((bg: any) => {
-          if (bg.type === "image") {
-            // In a real implementation, you'd use an image search API here
-            bg.value = `https://source.unsplash.com/random/800x600?${encodeURIComponent(bg.value)}`;
-          }
-          return bg;
-        });
-        
-        return NextResponse.json({ backgrounds });
-        */
-        // For now, fall back to mock if OpenAI is selected but not configured
+        // We're no longer using OpenAI. Fallback to Gemini or mock for now
+        console.warn(
+          "OpenAI option is deprecated, falling back to mock implementation"
+        );
         return NextResponse.json({
           backgrounds: suggestBackgroundsMock(text, sentiment),
         });
@@ -195,7 +155,7 @@ async function getPexelsBackgrounds(
         )}&per_page=1&orientation=landscape`,
         {
           headers: {
-            Authorization: PEXELS_API_KEY,
+            Authorization: PEXELS_API_KEY as string,
           },
         }
       );
@@ -227,7 +187,7 @@ async function getPexelsBackgrounds(
           )}&per_page=1&orientation=landscape`,
           {
             headers: {
-              Authorization: PEXELS_API_KEY,
+              Authorization: PEXELS_API_KEY as string,
             },
           }
         );
