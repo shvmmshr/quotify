@@ -16,9 +16,8 @@ import Header from "@/components/Header";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Quotify - Beautiful Quote Image Generator",
-  description:
-    "Transform text into beautiful shareable quote images with AI-powered styling",
+  title: "Quotica - Beautiful Quote Image Generator",
+  description: "Create beautiful quote images for social media",
 };
 
 export default function RootLayout({

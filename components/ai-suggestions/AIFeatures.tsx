@@ -4,13 +4,16 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { QuoteDesign, ColorPalette, BackgroundSuggestion } from "@/lib/types";
 import {
-  QuoteDesign,
-  SentimentAnalysis,
-  ColorPalette,
-  BackgroundSuggestion,
-} from "@/lib/types";
-import { Wand2, Palette, Image, CloudRain } from "lucide-react";
+  Wand2,
+  Palette,
+  Image,
+  Sparkles,
+  RotateCw,
+  RefreshCw,
+  Crown,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   Select,
@@ -20,6 +23,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 interface AIFeaturesProps {
   design: QuoteDesign;
@@ -28,43 +40,17 @@ interface AIFeaturesProps {
 
 export function AIFeatures({ design, onDesignChange }: AIFeaturesProps) {
   const [loading, setLoading] = useState<string | null>(null);
-  const [sentiment, setSentiment] = useState<SentimentAnalysis | null>(null);
   const [suggestedBackgrounds, setSuggestedBackgrounds] = useState<
     BackgroundSuggestion[]
   >([]);
   const [suggestedPalettes, setSuggestedPalettes] = useState<ColorPalette[]>(
     []
   );
-  const [backgroundSource, setBackgroundSource] = useState<string>("mock");
-
-  const analyzeSentiment = async () => {
-    if (!design.quote.text.trim()) {
-      toast.error("Please enter a quote to analyze");
-      return;
-    }
-
-    setLoading("sentiment");
-    try {
-      const response = await fetch("/api/analyze-sentiment", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text: design.quote.text }),
-      });
-
-      if (!response.ok) throw new Error("Failed to analyze sentiment");
-
-      const data = await response.json();
-      setSentiment(data);
-      toast.success("Sentiment analysis complete");
-    } catch (error) {
-      toast.error("Error analyzing sentiment");
-      console.error(error);
-    } finally {
-      setLoading(null);
-    }
-  };
+  const [backgroundSource, setBackgroundSource] = useState<string>("pexels");
+  const [geminiPrompt, setGeminiPrompt] = useState<string>("");
+  const [suggestedQuotes, setSuggestedQuotes] = useState<string[]>([]);
+  const [quoteContext, setQuoteContext] = useState<string>("inspiration");
+  const [showPremiumDialog, setShowPremiumDialog] = useState(false);
 
   const suggestBackgrounds = async () => {
     if (!design.quote.text.trim()) {
@@ -81,7 +67,6 @@ export function AIFeatures({ design, onDesignChange }: AIFeaturesProps) {
         },
         body: JSON.stringify({
           text: design.quote.text,
-          sentiment: sentiment?.sentiment || "neutral",
           source: backgroundSource,
         }),
       });
@@ -97,6 +82,10 @@ export function AIFeatures({ design, onDesignChange }: AIFeaturesProps) {
     } finally {
       setLoading(null);
     }
+  };
+
+  const showPremiumMessage = () => {
+    setShowPremiumDialog(true);
   };
 
   const generateColorPalette = async () => {
@@ -132,6 +121,20 @@ export function AIFeatures({ design, onDesignChange }: AIFeaturesProps) {
             background: "#0F172A",
             text: "#F8FAFC",
           },
+          {
+            primary: "#8B5CF6",
+            secondary: "#EC4899",
+            accent: "#0EA5E9",
+            background: "#18181B",
+            text: "#F9FAFB",
+          },
+          {
+            primary: "#F59E0B",
+            secondary: "#EF4444",
+            accent: "#F97316",
+            background: "#FFFBEB",
+            text: "#1F2937",
+          },
         ];
 
         setSuggestedPalettes(palettes);
@@ -145,6 +148,32 @@ export function AIFeatures({ design, onDesignChange }: AIFeaturesProps) {
     }
   };
 
+  const suggestQuotes = async () => {
+    setLoading("quotes");
+    try {
+      // This would be a real API call in a production app
+      // For now we'll simulate it with sample data
+      setTimeout(() => {
+        const quotes = [
+          "Success is not final, failure is not fatal: It is the courage to continue that counts.",
+          "The future belongs to those who believe in the beauty of their dreams.",
+          "Believe you can and you're halfway there.",
+          "It does not matter how slowly you go as long as you do not stop.",
+          "The only way to do great work is to love what you do.",
+        ];
+
+        setSuggestedQuotes(quotes);
+        setLoading(null);
+        toast.success("Quote suggestions ready");
+      }, 2000);
+    } catch (error) {
+      toast.error("Error suggesting quotes");
+      console.error(error);
+    } finally {
+      setLoading(null);
+    }
+  };
+
   const enhanceQuote = async () => {
     if (!design.quote.text.trim()) {
       toast.error("Please enter a quote to enhance");
@@ -154,30 +183,54 @@ export function AIFeatures({ design, onDesignChange }: AIFeaturesProps) {
     setLoading("enhance");
     try {
       // This would be a real API call in a production app
-      // For now we'll simulate it with a simple transformation
+      // For now we'll use a more reliable enhancement approach
       setTimeout(() => {
-        const enhanced = design.quote.text.replace(/\b(\w+)\b/g, (match) => {
-          // 20% chance to replace common words with more elegant alternatives
-          if (Math.random() < 0.2) {
-            switch (match.toLowerCase()) {
-              case "good":
-                return "excellent";
-              case "bad":
-                return "terrible";
-              case "big":
-                return "enormous";
-              case "small":
-                return "tiny";
-              case "happy":
-                return "delighted";
-              case "sad":
-                return "melancholy";
-              default:
-                return match;
+        // Split the quote into words
+        const words = design.quote.text.split(/\s+/);
+
+        // Define word replacements for enhancement
+        const enhancements = {
+          good: ["excellent", "outstanding", "superb", "remarkable"],
+          bad: ["terrible", "dreadful", "awful", "poor"],
+          big: ["enormous", "vast", "massive", "substantial"],
+          small: ["tiny", "minute", "diminutive", "compact"],
+          happy: ["delighted", "joyful", "elated", "jubilant"],
+          sad: ["melancholy", "sorrowful", "despondent", "downcast"],
+          important: ["essential", "crucial", "vital", "significant"],
+          beautiful: ["stunning", "exquisite", "magnificent", "gorgeous"],
+          angry: ["furious", "enraged", "indignant", "irate"],
+          smart: ["brilliant", "intelligent", "ingenious", "astute"],
+        };
+
+        // Replace some words with more elegant alternatives
+        const enhancedWords = words.map((word) => {
+          // Remove punctuation for comparison
+          const cleanWord = word.toLowerCase().replace(/[^\w\s]|_/g, "");
+
+          if (enhancements[cleanWord as keyof typeof enhancements]) {
+            const replacements = enhancements[cleanWord as keyof typeof enhancements];
+            const replacement =
+              replacements[Math.floor(Math.random() * replacements.length)];
+
+            // If original had uppercase first letter, maintain capitalization
+            if (word[0] === word[0].toUpperCase()) {
+              return (
+                replacement.charAt(0).toUpperCase() +
+                replacement.slice(1) +
+                // Add back any punctuation
+                word.replace(/[\w]/g, "")
+              );
             }
+
+            // Keep any punctuation from the original word
+            return replacement + word.replace(/[\w]/g, "");
           }
-          return match;
+
+          return word;
         });
+
+        // Join back into a string
+        const enhanced = enhancedWords.join(" ");
 
         onDesignChange({
           quote: {
@@ -222,16 +275,27 @@ export function AIFeatures({ design, onDesignChange }: AIFeaturesProps) {
     toast.success("Color palette applied");
   };
 
+  const applyQuote = (quote: string) => {
+    onDesignChange({
+      quote: {
+        ...design.quote,
+        text: quote,
+        author: "", // Clear author for suggested quotes
+      },
+    });
+    toast.success("Quote applied");
+  };
+
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
-        <CardTitle>AI Features</CardTitle>
+        <CardTitle>AI Assistant</CardTitle>
       </CardHeader>
-      <CardContent className="h-[calc(100%-4rem)]">
+      <CardContent className="h-[calc(100%-4rem)] overflow-auto">
         <Tabs defaultValue="suggest" className="space-y-4">
           <TabsList className="grid grid-cols-2 w-full">
-            <TabsTrigger value="suggest">Suggest</TabsTrigger>
-            <TabsTrigger value="analyze">Analyze</TabsTrigger>
+            <TabsTrigger value="suggest">Design</TabsTrigger>
+            <TabsTrigger value="content">Content</TabsTrigger>
           </TabsList>
 
           <TabsContent value="suggest" className="space-y-4">
@@ -246,9 +310,8 @@ export function AIFeatures({ design, onDesignChange }: AIFeaturesProps) {
                     <SelectValue placeholder="Select source" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="mock">Built-in Samples</SelectItem>
-                    <SelectItem value="unsplash">Unsplash API</SelectItem>
                     <SelectItem value="pexels">Pexels API</SelectItem>
+                    <SelectItem value="mock">Built-in Samples</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -258,169 +321,281 @@ export function AIFeatures({ design, onDesignChange }: AIFeaturesProps) {
                 className="w-full flex items-center gap-2"
                 disabled={loading === "backgrounds"}
               >
-                <Image className="h-4 w-4" />
-                {loading === "backgrounds"
-                  ? "Loading..."
-                  : "Suggest Backgrounds"}
+                {loading === "backgrounds" ? (
+                  <>
+                    <RotateCw className="h-4 w-4 animate-spin" />
+                    Generating backgrounds...
+                  </>
+                ) : (
+                  <>
+                    <Image className="h-4 w-4" />
+                    Suggest Backgrounds
+                  </>
+                )}
               </Button>
 
-              {suggestedBackgrounds.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  <h4 className="text-sm font-medium">Suggested Backgrounds</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {suggestedBackgrounds.map((bg, index) => (
-                      <div
-                        key={index}
-                        className="relative h-20 rounded-md cursor-pointer border overflow-hidden"
-                        onClick={() => applyBackground(bg)}
-                      >
-                        {bg.type === "color" ? (
-                          <div
-                            className="w-full h-full"
-                            style={{ backgroundColor: bg.value }}
-                          />
-                        ) : bg.type === "gradient" ? (
-                          <div
-                            className="w-full h-full"
-                            style={{ background: bg.value }}
-                          />
-                        ) : (
-                          <div
-                            className="w-full h-full bg-cover bg-center"
-                            style={{ backgroundImage: `url(${bg.value})` }}
-                          />
-                        )}
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/70 px-2 py-1">
-                          <p className="text-xs text-white truncate">
-                            {bg.description}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+              <div className="space-y-2 mt-4 border-t pt-4">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="gemini-prompt">Gemini Image Generator</Label>
+                  <Badge
+                    variant="outline"
+                    className="text-xs text-amber-500 border-amber-500"
+                  >
+                    <Crown className="h-3 w-3 mr-1 text-amber-500" /> Premium
+                  </Badge>
                 </div>
-              )}
-            </div>
+                <Textarea
+                  id="gemini-prompt"
+                  placeholder="Enter a detailed description of the image you want to generate..."
+                  className="resize-none"
+                  rows={3}
+                  value={geminiPrompt}
+                  onChange={(e) => setGeminiPrompt(e.target.value)}
+                />
+                <Button
+                  onClick={showPremiumMessage}
+                  className="w-full flex items-center gap-2"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Generate with Gemini
+                </Button>
+              </div>
 
-            <div className="space-y-2">
               <Button
                 onClick={generateColorPalette}
-                className="w-full flex items-center gap-2"
+                className="w-full flex items-center gap-2 mt-4"
                 disabled={loading === "palette"}
               >
-                <Palette className="h-4 w-4" />
-                {loading === "palette"
-                  ? "Loading..."
-                  : "Generate Color Palette"}
+                {loading === "palette" ? (
+                  <>
+                    <RotateCw className="h-4 w-4 animate-spin" />
+                    Generating palettes...
+                  </>
+                ) : (
+                  <>
+                    <Palette className="h-4 w-4" />
+                    Generate Color Palette
+                  </>
+                )}
               </Button>
-
-              {suggestedPalettes.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  <h4 className="text-sm font-medium">Color Palettes</h4>
-                  <div className="space-y-2">
-                    {suggestedPalettes.map((palette, index) => (
-                      <div
-                        key={index}
-                        className="flex h-10 cursor-pointer rounded-md overflow-hidden"
-                        onClick={() => applyPalette(palette)}
-                      >
-                        <div
-                          className="w-1/5 h-full"
-                          style={{ backgroundColor: palette.primary }}
-                        ></div>
-                        <div
-                          className="w-1/5 h-full"
-                          style={{ backgroundColor: palette.secondary }}
-                        ></div>
-                        <div
-                          className="w-1/5 h-full"
-                          style={{ backgroundColor: palette.accent }}
-                        ></div>
-                        <div
-                          className="w-1/5 h-full"
-                          style={{ backgroundColor: palette.background }}
-                        ></div>
-                        <div
-                          className="w-1/5 h-full"
-                          style={{ backgroundColor: palette.text }}
-                        ></div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
+            {suggestedBackgrounds.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium">
+                    Background Suggestions
+                  </h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={suggestBackgrounds}
+                    disabled={loading === "backgrounds"}
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {suggestedBackgrounds.map((bg, index) => (
+                    <div
+                      key={index}
+                      className="group relative aspect-square cursor-pointer rounded-md overflow-hidden border"
+                      onClick={() => applyBackground(bg)}
+                    >
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          background:
+                            bg.type === "image" ? `url(${bg.value})` : bg.value,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
+                      <div className="absolute bottom-0 left-0 right-0 p-1 bg-black/50 text-white text-xs">
+                        {bg.description}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {suggestedPalettes.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium">Color Palettes</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={generateColorPalette}
+                    disabled={loading === "palette"}
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                  </Button>
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  {suggestedPalettes.map((palette, index) => (
+                    <div
+                      key={index}
+                      className="flex cursor-pointer rounded-md overflow-hidden h-10 border"
+                      onClick={() => applyPalette(palette)}
+                    >
+                      <div
+                        className="w-1/5 h-full"
+                        style={{ backgroundColor: palette.primary }}
+                      />
+                      <div
+                        className="w-1/5 h-full"
+                        style={{ backgroundColor: palette.secondary }}
+                      />
+                      <div
+                        className="w-1/5 h-full"
+                        style={{ backgroundColor: palette.accent }}
+                      />
+                      <div
+                        className="w-1/5 h-full"
+                        style={{ backgroundColor: palette.background }}
+                      />
+                      <div
+                        className="w-1/5 h-full flex items-center justify-center text-xs"
+                        style={{
+                          backgroundColor: palette.background,
+                          color: palette.text,
+                        }}
+                      >
+                        Aa
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="content" className="space-y-4">
             <div className="space-y-2">
+              <div className="space-y-2 mb-4">
+                <Label htmlFor="quote-context">Quote Context</Label>
+                <Select value={quoteContext} onValueChange={setQuoteContext}>
+                  <SelectTrigger id="quote-context">
+                    <SelectValue placeholder="Select context" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="inspiration">Inspirational</SelectItem>
+                    <SelectItem value="motivation">Motivational</SelectItem>
+                    <SelectItem value="success">Success</SelectItem>
+                    <SelectItem value="wisdom">Wisdom</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button
+                onClick={suggestQuotes}
+                className="w-full flex items-center gap-2"
+                disabled={loading === "quotes"}
+              >
+                {loading === "quotes" ? (
+                  <>
+                    <RotateCw className="h-4 w-4 animate-spin" />
+                    Finding quotes...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="h-4 w-4" />
+                    Suggest Quotes
+                  </>
+                )}
+              </Button>
+
               <Button
                 onClick={enhanceQuote}
                 className="w-full flex items-center gap-2"
-                disabled={loading === "enhance"}
+                disabled={loading === "enhance" || !design.quote.text.trim()}
               >
-                <Wand2 className="h-4 w-4" />
-                {loading === "enhance" ? "Enhancing..." : "Enhance Quote"}
+                {loading === "enhance" ? (
+                  <>
+                    <RotateCw className="h-4 w-4 animate-spin" />
+                    Enhancing quote...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Enhance Current Quote
+                  </>
+                )}
               </Button>
             </div>
-          </TabsContent>
 
-          <TabsContent value="analyze" className="space-y-4">
-            <div className="space-y-2">
-              <Button
-                onClick={analyzeSentiment}
-                className="w-full flex items-center gap-2"
-                disabled={loading === "sentiment"}
-              >
-                <CloudRain className="h-4 w-4" />
-                {loading === "sentiment" ? "Analyzing..." : "Analyze Sentiment"}
-              </Button>
-
-              {sentiment && (
-                <div className="rounded-lg border p-3 mt-4">
-                  <h4 className="text-sm font-medium mb-2">
-                    Sentiment Analysis
-                  </h4>
-                  <div className="space-y-1">
-                    <p className="text-xs flex justify-between">
-                      <span>Overall:</span>
-                      <span className="font-medium capitalize">
-                        {sentiment.sentiment}
-                      </span>
-                    </p>
-                    <p className="text-xs flex justify-between">
-                      <span>Score:</span>
-                      <span className="font-medium">
-                        {sentiment.score.toFixed(2)}
-                      </span>
-                    </p>
-
-                    {sentiment.emotions && (
-                      <div className="pt-2 mt-2 border-t">
-                        <p className="text-xs mb-1">Emotions:</p>
-                        <div className="space-y-1">
-                          {Object.entries(sentiment.emotions).map(
-                            ([emotion, score]) => (
-                              <div
-                                key={emotion}
-                                className="text-xs flex justify-between"
-                              >
-                                <span className="capitalize">{emotion}:</span>
-                                <span className="font-medium">
-                                  {typeof score === "number"
-                                    ? score.toFixed(2)
-                                    : score}
-                                </span>
-                              </div>
-                            )
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+            {suggestedQuotes.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium">Quote Suggestions</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={suggestQuotes}
+                    disabled={loading === "quotes"}
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                  </Button>
                 </div>
-              )}
-            </div>
+                <div className="space-y-2">
+                  {suggestedQuotes.map((quote, index) => (
+                    <div
+                      key={index}
+                      className="p-3 border rounded-md cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => applyQuote(quote)}
+                    >
+                      <p className="text-sm">{quote}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
+
+        <Dialog open={showPremiumDialog} onOpenChange={setShowPremiumDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-xl">
+                <Crown className="h-5 w-5 text-amber-500" /> Premium Feature
+              </DialogTitle>
+              <DialogDescription>
+                Gemini AI image generation will be available soon in the premium
+                version.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="border rounded-md p-4">
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-amber-500" /> Coming Soon
+                </h4>
+                <ul className="space-y-2 text-sm">
+                  <li className="flex items-start gap-2">
+                    <div className="rounded-full bg-green-500 h-1.5 w-1.5 mt-1.5"></div>
+                    AI image generation using detailed text prompts
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <div className="rounded-full bg-green-500 h-1.5 w-1.5 mt-1.5"></div>
+                    Create custom backgrounds specifically for your quotes
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <div className="rounded-full bg-green-500 h-1.5 w-1.5 mt-1.5"></div>
+                    Multiple style options and high-resolution exports
+                  </li>
+                </ul>
+              </div>
+
+              <div className="flex justify-end">
+                <Button onClick={() => setShowPremiumDialog(false)}>
+                  Close
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

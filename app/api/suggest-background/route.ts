@@ -16,42 +16,36 @@ const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 
 export async function POST(request: Request) {
   try {
-    const { text, sentiment, source = "mock" } = await request.json();
+    const { text, source = "mock", prompt } = await request.json();
 
-    if (!text || typeof text !== "string") {
+    if (!text && !prompt) {
       return NextResponse.json(
-        { error: "Invalid request. Text is required." },
+        { error: "Invalid request. Text or prompt is required." },
         { status: 400 }
       );
     }
 
     // Choose the source based on the request
     switch (source) {
-      case "unsplash":
-        const unsplashBackgrounds = await getUnsplashBackgrounds(
-          text,
-          sentiment
-        );
-        return NextResponse.json({ backgrounds: unsplashBackgrounds });
+      case "gemini":
+        if (!prompt) {
+          return NextResponse.json(
+            { error: "Prompt is required for Gemini image generation" },
+            { status: 400 }
+          );
+        }
+        const geminiBackgrounds = await getGeminiBackgrounds(prompt);
+        return NextResponse.json({ backgrounds: geminiBackgrounds });
 
       case "pexels":
-        const pexelsBackgrounds = await getPexelsBackgrounds(text, sentiment);
+        const pexelsBackgrounds = await getPexelsBackgrounds(text);
         return NextResponse.json({ backgrounds: pexelsBackgrounds });
-
-      case "openai":
-        // We're no longer using OpenAI. Fallback to Gemini or mock for now
-        console.warn(
-          "OpenAI option is deprecated, falling back to mock implementation"
-        );
-        return NextResponse.json({
-          backgrounds: suggestBackgroundsMock(text, sentiment),
-        });
 
       case "mock":
       default:
         // Default to mock implementation
         return NextResponse.json({
-          backgrounds: suggestBackgroundsMock(text, sentiment),
+          backgrounds: suggestBackgroundsMock(text),
         });
     }
   } catch (error) {
@@ -63,87 +57,62 @@ export async function POST(request: Request) {
   }
 }
 
-// Unsplash API implementation
-async function getUnsplashBackgrounds(
-  text: string,
-  sentiment: string = "neutral"
+// Gemini API implementation (simulated for now)
+async function getGeminiBackgrounds(
+  prompt: string
 ): Promise<BackgroundSuggestion[]> {
   try {
-    // Extract keywords from the text
-    const keywords = extractKeywords(text, sentiment);
-    const backgrounds: BackgroundSuggestion[] = [];
+    // This would be a real API call in a production app
+    // For now we'll simulate response with a mock
+    console.log("Generating images with Gemini using prompt:", prompt);
 
-    // Get images for each keyword (limit to 4 total)
-    for (let i = 0; i < Math.min(keywords.length, 4); i++) {
-      const keyword = keywords[i];
-      const response = await fetch(
-        `https://api.unsplash.com/photos/random?query=${encodeURIComponent(
-          keyword
-        )}&orientation=landscape`,
-        {
-          headers: {
-            Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}`,
-          },
-        }
-      );
+    // In a real implementation, you would call the Gemini API here
+    // and process the image results
 
-      if (response.ok) {
-        const data = await response.json();
-        backgrounds.push({
+    // Simulate a 1-second delay to mimic API call
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Return simulated images
+    return [
+      {
+        type: "image",
+        value:
+          "https://images.pexels.com/photos/3408744/pexels-photo-3408744.jpeg",
+        description: "Generated with Gemini AI",
+      },
+      {
           type: "image",
-          value: data.urls.regular,
-          description: `${keyword} (via Unsplash by ${data.user.name})`,
-        });
-      }
-    }
-
-    // If we couldn't get enough images from keywords, add some based on sentiment
-    if (backgrounds.length < 4) {
-      const sentimentKeywords = getSentimentKeywords(sentiment);
-      for (
-        let i = 0;
-        backgrounds.length < 4 && i < sentimentKeywords.length;
-        i++
-      ) {
-        const keyword = sentimentKeywords[i];
-        const response = await fetch(
-          `https://api.unsplash.com/photos/random?query=${encodeURIComponent(
-            keyword
-          )}&orientation=landscape`,
-          {
-            headers: {
-              Authorization: `Client-ID ${UNSPLASH_ACCESS_KEY}`,
-            },
-          }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          backgrounds.push({
+        value:
+          "https://images.pexels.com/photos/1054201/pexels-photo-1054201.jpeg",
+        description: "Generated with Gemini AI",
+      },
+      {
+        type: "image",
+        value:
+          "https://images.pexels.com/photos/2310713/pexels-photo-2310713.jpeg",
+        description: "Generated with Gemini AI",
+      },
+      {
             type: "image",
-            value: data.urls.regular,
-            description: `${keyword} (via Unsplash by ${data.user.name})`,
-          });
-        }
-      }
-    }
-
-    return backgrounds;
+        value:
+          "https://images.pexels.com/photos/531767/pexels-photo-531767.jpeg",
+        description: "Generated with Gemini AI",
+      },
+    ];
   } catch (error) {
-    console.error("Error fetching from Unsplash:", error);
+    console.error("Error with Gemini image generation:", error);
     // Fallback to mock if there's an error
-    return suggestBackgroundsMock(text, sentiment);
+    return suggestBackgroundsMock("");
   }
 }
 
 // Pexels API implementation
 async function getPexelsBackgrounds(
-  text: string,
-  sentiment: string = "neutral"
+  text: string
 ): Promise<BackgroundSuggestion[]> {
   try {
     // Extract keywords from the text
-    const keywords = extractKeywords(text, sentiment);
+    const keywords = extractKeywords(text);
     const backgrounds: BackgroundSuggestion[] = [];
 
     // Get images for each keyword (limit to 4 total)
@@ -172,15 +141,15 @@ async function getPexelsBackgrounds(
       }
     }
 
-    // If we couldn't get enough images from keywords, add some based on sentiment
+    // If we couldn't get enough images from keywords, add some based on general topics
     if (backgrounds.length < 4) {
-      const sentimentKeywords = getSentimentKeywords(sentiment);
+      const generalKeywords = ["nature", "landscape", "abstract", "sky"];
       for (
         let i = 0;
-        backgrounds.length < 4 && i < sentimentKeywords.length;
+        backgrounds.length < 4 && i < generalKeywords.length;
         i++
       ) {
-        const keyword = sentimentKeywords[i];
+        const keyword = generalKeywords[i];
         const response = await fetch(
           `https://api.pexels.com/v1/search?query=${encodeURIComponent(
             keyword
@@ -209,12 +178,12 @@ async function getPexelsBackgrounds(
   } catch (error) {
     console.error("Error fetching from Pexels:", error);
     // Fallback to mock if there's an error
-    return suggestBackgroundsMock(text, sentiment);
+    return suggestBackgroundsMock(text);
   }
 }
 
 // Helper function to extract keywords from text
-function extractKeywords(text: string, sentiment: string): string[] {
+function extractKeywords(text: string): string[] {
   const words = text
     .toLowerCase()
     .split(/\W+/)
@@ -249,183 +218,217 @@ function extractKeywords(text: string, sentiment: string): string[] {
     "about",
     "then",
     "than",
+    "other",
+    "more",
+    "these",
+    "which",
+    "their",
+    "thing",
   ];
-  const filteredWords = words.filter((word) => !commonWords.includes(word));
 
-  // Add specific keywords based on sentiment
-  const keywords = [...new Set(filteredWords)]; // Remove duplicates
+  // Filter out common words
+  const filteredWords = words.filter(
+    (word) => !commonWords.includes(word.toLowerCase())
+  );
 
-  // Add sentiment-based keywords if we don't have enough
-  if (keywords.length < 2) {
-    keywords.push(...getSentimentKeywords(sentiment).slice(0, 2));
-  }
+  // Get unique words
+  const uniqueWords = Array.from(new Set(filteredWords));
 
-  return keywords;
+  return uniqueWords;
 }
 
-// Helper function to get sentiment-based keywords
-function getSentimentKeywords(sentiment: string): string[] {
-  switch (sentiment) {
-    case "positive":
-      return [
-        "happy",
-        "sunshine",
-        "success",
-        "inspiration",
-        "motivation",
-        "achievement",
-      ];
-    case "negative":
-      return ["moody", "rain", "storm", "dark", "struggle", "challenge"];
-    case "neutral":
-    default:
-      return ["calm", "balance", "minimal", "sky", "nature", "abstract"];
-  }
+// Mock implementation (fallback)
+function suggestBackgroundsMock(text: string): BackgroundSuggestion[] {
+  // Sample gradients
+  const gradients = [
+    {
+      value: "linear-gradient(135deg, #6B73FF 0%, #000DFF 100%)",
+      description: "Deep Blue",
+    },
+    {
+      value: "linear-gradient(135deg, #FF6B6B 0%, #FFE66D 100%)",
+      description: "Sunset",
+    },
+    {
+      value: "linear-gradient(135deg, #4BC0C8 0%, #C779D0 50%, #FEAC5E 100%)",
+      description: "Pastel Rainbow",
+    },
+    {
+      value: "linear-gradient(135deg, #43E97B 0%, #38F9D7 100%)",
+      description: "Fresh Mint",
+    },
+    {
+      value: "linear-gradient(135deg, #5B247A 0%, #1BCEDF 100%)",
+      description: "Cosmic Fusion",
+    },
+    {
+      value: "linear-gradient(135deg, #184E68 0%, #57CA85 100%)",
+      description: "Forest",
+    },
+    {
+      value: "linear-gradient(135deg, #65379B 0%, #886AEA 100%)",
+      description: "Purple Mist",
+    },
+    {
+      value: "linear-gradient(135deg, #FF057C 0%, #8D0B93 50%, #321575 100%)",
+      description: "Vibrant Pink-Purple",
+    },
+    {
+      value: "linear-gradient(135deg, #F9D423 0%, #FF4E50 100%)",
+      description: "Warm Flame",
+    },
+    {
+      value: "linear-gradient(135deg, #30CFD0 0%, #330867 100%)",
+      description: "Winter Neva",
+    },
+    {
+      value: "linear-gradient(135deg, #FF3CAC 0%, #784BA0 50%, #2B86C5 100%)",
+      description: "Neon Purple",
+    },
+    {
+      value: "linear-gradient(135deg, #396AFC 0%, #2948FF 100%)",
+      description: "Electric Blue",
+    },
+  ];
+
+  // Sample colors
+  const colors = [
+    {
+      value: "#6366F1",
+      description: "Indigo",
+    },
+    {
+      value: "#0ea5e9",
+      description: "Sky Blue",
+    },
+    {
+      value: "#14b8a6",
+      description: "Teal",
+    },
+    {
+      value: "#10b981",
+      description: "Emerald",
+    },
+    {
+      value: "#84cc16",
+      description: "Lime",
+    },
+    {
+      value: "#eab308",
+      description: "Yellow",
+    },
+    {
+      value: "#f97316",
+      description: "Orange",
+    },
+    {
+      value: "#ef4444",
+      description: "Red",
+    },
+    {
+      value: "#ec4899",
+      description: "Pink",
+    },
+    {
+      value: "#8b5cf6",
+      description: "Violet",
+    },
+    {
+      value: "#0f172a",
+      description: "Slate",
+    },
+    {
+      value: "#1e293b",
+      description: "Dark Blue",
+    },
+  ];
+
+  // Sample image URLs (nature photos, landscapes, abstract)
+  const images = [
+    {
+      value:
+        "https://images.pexels.com/photos/3408744/pexels-photo-3408744.jpeg",
+      description: "Mountain Landscape",
+    },
+    {
+      value:
+        "https://images.pexels.com/photos/1054201/pexels-photo-1054201.jpeg",
+      description: "Ocean Wave",
+    },
+    {
+      value:
+        "https://images.pexels.com/photos/2310713/pexels-photo-2310713.jpeg",
+      description: "Abstract Art",
+    },
+    {
+      value: "https://images.pexels.com/photos/572780/pexels-photo-572780.jpeg",
+      description: "Starry Sky",
+    },
+    {
+      value:
+        "https://images.pexels.com/photos/1261728/pexels-photo-1261728.jpeg",
+      description: "Forest Path",
+    },
+    {
+      value:
+        "https://images.pexels.com/photos/2559941/pexels-photo-2559941.jpeg",
+      description: "Desert Sand",
+    },
+    {
+      value:
+        "https://images.pexels.com/photos/33545/sunrise-phu-quoc-island-ocean.jpg",
+      description: "Sunrise",
+    },
+    {
+      value: "https://images.pexels.com/photos/531767/pexels-photo-531767.jpeg",
+      description: "Cloudy Sky",
+    },
+  ];
+
+  // Combine all potential backgrounds
+  const allBackgrounds: BackgroundSuggestion[] = [
+    ...gradients.map((g) => ({ type: "gradient" as const, ...g })),
+    ...colors.map((c) => ({ type: "color" as const, ...c })),
+    ...images.map((i) => ({ type: "image" as const, ...i })),
+  ];
+
+  // Shuffle the array
+  const shuffled = shuffleArray(allBackgrounds);
+
+  // Return a selection of 8 backgrounds (4 from each category)
+  const results: BackgroundSuggestion[] = [];
+
+  // Add 1-2 colors
+  const colorCount = Math.floor(Math.random() * 2) + 1;
+  shuffled
+    .filter((bg) => bg.type === "color")
+    .slice(0, colorCount)
+    .forEach((bg) => results.push(bg));
+
+  // Add 2-3 gradients
+  const gradientCount = Math.floor(Math.random() * 2) + 2;
+  shuffled
+    .filter((bg) => bg.type === "gradient")
+    .slice(0, gradientCount)
+    .forEach((bg) => results.push(bg));
+
+  // Add 3-4 images
+  const imageCount = Math.min(8 - results.length, 4);
+  shuffled
+    .filter((bg) => bg.type === "image")
+    .slice(0, imageCount)
+    .forEach((bg) => results.push(bg));
+
+  // Return exactly 8 backgrounds
+  return shuffleArray(results).slice(0, 8);
 }
 
-// Simple mock background suggestion function for demo purposes
-function suggestBackgroundsMock(
-  text: string,
-  sentiment: string = "neutral"
-): BackgroundSuggestion[] {
-  // Define background sets based on sentiment
-  const backgroundSets = {
-    positive: [
-      {
-        type: "gradient" as const,
-        value: "linear-gradient(135deg, #4ade80 0%, #22d3ee 100%)",
-        description: "Vibrant green to blue gradient",
-      },
-      {
-        type: "gradient" as const,
-        value: "linear-gradient(135deg, #fde68a 0%, #f59e0b 100%)",
-        description: "Warm sunny gradient",
-      },
-      {
-        type: "color" as const,
-        value: "#0ea5e9",
-        description: "Bright sky blue",
-      },
-      {
-        type: "image" as const,
-        value: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05",
-        description: "Scenic mountain landscape",
-      },
-    ],
-    negative: [
-      {
-        type: "gradient" as const,
-        value: "linear-gradient(135deg, #475569 0%, #0f172a 100%)",
-        description: "Deep blue to dark gradient",
-      },
-      {
-        type: "gradient" as const,
-        value: "linear-gradient(135deg, #6b7280 0%, #1f2937 100%)",
-        description: "Subtle gray gradient",
-      },
-      {
-        type: "color" as const,
-        value: "#334155",
-        description: "Slate gray",
-      },
-      {
-        type: "image" as const,
-        value: "https://images.unsplash.com/photo-1542273917363-3b1817f69a2d",
-        description: "Misty forest",
-      },
-    ],
-    neutral: [
-      {
-        type: "gradient" as const,
-        value: "linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%)",
-        description: "Soft neutral gradient",
-      },
-      {
-        type: "gradient" as const,
-        value: "linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)",
-        description: "Minimal light gradient",
-      },
-      {
-        type: "color" as const,
-        value: "#f1f5f9",
-        description: "Clean white with subtle blue tint",
-      },
-      {
-        type: "image" as const,
-        value: "https://images.unsplash.com/photo-1557683316-973673baf926",
-        description: "Calm water",
-      },
-    ],
-  };
-
-  // Choose background set based on sentiment
-  let backgrounds;
-  if (sentiment === "positive") {
-    backgrounds = backgroundSets.positive;
-  } else if (sentiment === "negative") {
-    backgrounds = backgroundSets.negative;
-  } else {
-    backgrounds = backgroundSets.neutral;
-  }
-
-  // Analyze text for keywords to customize suggestions
-  const lowerText = text.toLowerCase();
-
-  // Add some custom backgrounds based on detected themes
-  if (lowerText.includes("love") || lowerText.includes("heart")) {
-    backgrounds.push({
-      type: "gradient" as const,
-      value: "linear-gradient(135deg, #fb7185 0%, #e11d48 100%)",
-      description: "Romantic pink gradient",
-    });
-  }
-
-  if (
-    lowerText.includes("nature") ||
-    lowerText.includes("earth") ||
-    lowerText.includes("tree")
-  ) {
-    backgrounds.push({
-      type: "image" as const,
-      value: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e",
-      description: "Lush green forest",
-    });
-  }
-
-  if (
-    lowerText.includes("sky") ||
-    lowerText.includes("heaven") ||
-    lowerText.includes("cloud")
-  ) {
-    backgrounds.push({
-      type: "image" as const,
-      value: "https://images.unsplash.com/photo-1544829728-d6a8e4da3d2e",
-      description: "Blue sky with clouds",
-    });
-  }
-
-  if (
-    lowerText.includes("ocean") ||
-    lowerText.includes("sea") ||
-    lowerText.includes("water")
-  ) {
-    backgrounds.push({
-      type: "image" as const,
-      value: "https://images.unsplash.com/photo-1505118380757-91f5f5632de0",
-      description: "Ocean waves",
-    });
-  }
-
-  // Shuffle and trim to 4 items
-  return shuffleArray(backgrounds).slice(0, 4);
-}
-
-// Helper function to shuffle an array
+// Helper to shuffle an array
 function shuffleArray<T>(array: T[]): T[] {
-  const newArray = [...array];
-  for (let i = newArray.length - 1; i > 0; i--) {
+  const shuffled = [...array];
+  for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
-  return newArray;
+  return shuffled;
 }

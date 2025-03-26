@@ -1,5 +1,5 @@
 {
-  "name": "quotify-app",
+  "name": "quotica-app",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -22,11 +22,14 @@
     "@radix-ui/react-slider": "^1.2.3",
     "@radix-ui/react-slot": "^1.1.2",
     "@radix-ui/react-tabs": "^1.1.3",
+    "@radix-ui/react-toggle": "^1.0.3",
+    "@radix-ui/react-tooltip": "^1.0.7",
     "@studio-freight/lenis": "^1.0.42",
     "ai": "^4.2.0",
     "axios": "^1.8.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "dom-to-image": "^2.6.0",
     "framer-motion": "^12.5.0",
     "html2canvas": "^1.4.1",
     "langchain": "^0.3.19",

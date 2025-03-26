@@ -1,14 +1,191 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "next-themes";
 import Lenis from "lenis";
 
+// Component for a single shooting star
+interface ShootingStarProps {
+  delay: number;
+  top: number;
+  left: number;
+  size: number;
+  rotation: number;
+  speed: number;
+  trail: number;
+  color: string;
+}
+
+const ShootingStar = ({
+  delay = 0,
+  top,
+  left,
+  size,
+  rotation,
+  speed = 1.8,
+  trail,
+  color = "white",
+}: ShootingStarProps) => {
+  // Calculate trail effect
+  const trailOpacity = 0.8 - size * 0.1; // Smaller stars have more visible trails
+  const glowSize = size * 2.5;
+
+  return (
+    <motion.div
+      className="absolute z-0"
+      style={{
+        top: `${top}%`,
+        left: `${left}%`,
+        transform: `rotate(${rotation}deg)`,
+      }}
+      initial={{
+        opacity: 0,
+      }}
+      animate={{
+        opacity: [0, 1, 0.8, 0],
+      }}
+      transition={{
+        duration: speed,
+        delay,
+        ease: "easeInOut",
+      }}
+    >
+      {/* Star head */}
+      <motion.div
+        className="absolute rounded-full"
+        style={{
+          width: `${size}px`,
+          height: `${size}px`,
+          backgroundColor: color,
+          boxShadow: `0 0 ${glowSize}px ${glowSize / 2}px rgba(255,255,255,${
+            trailOpacity + 0.2
+          })`,
+          zIndex: 2,
+        }}
+        initial={{
+          x: 0,
+          y: 0,
+        }}
+        animate={{
+          x: trail,
+          y: trail,
+        }}
+        transition={{
+          duration: speed,
+          delay,
+          ease: [0.2, 0.2, 0.3, 1], // Custom cubic bezier for more realistic motion
+        }}
+      />
+
+      {/* Star trail */}
+      <motion.div
+        className="absolute origin-top-left"
+        style={{
+          width: `${trail}px`,
+          height: `${size / 1.2}px`,
+          background: `linear-gradient(to right, transparent, ${color}40 30%, ${color}80)`,
+          filter: "blur(0.8px)",
+        }}
+        initial={{
+          scaleX: 0,
+          opacity: 0,
+        }}
+        animate={{
+          scaleX: 1,
+          opacity: [0, trailOpacity, 0],
+        }}
+        transition={{
+          duration: speed,
+          delay,
+          ease: [0.2, 0.2, 0.3, 1],
+        }}
+      />
+    </motion.div>
+  );
+};
+
 const HeroSection: React.FC = () => {
   const { theme } = useTheme();
+  const [stars, setStars] = useState<
+    {
+      id: number;
+      delay: number;
+      top: number;
+      left: number;
+      size: number;
+      rotation: number;
+      speed: number;
+      trail: number;
+      color: string;
+    }[]
+  >([]);
+
+  // Setup shooting stars that appear more frequently with better distribution
+  useEffect(() => {
+    let count = 0;
+    let timerId: NodeJS.Timeout;
+    let activeShoots = 0;
+    const maxConcurrentStars = 3; // Allow up to 3 stars at once
+
+    // Star colors
+    const starColors = ["#ffffff", "#f5f5ff", "#ebebff", "#e6f7ff", "#fff5f0"];
+
+    const createStar = () => {
+      // Limit concurrent stars
+      if (activeShoots >= maxConcurrentStars) {
+        timerId = setTimeout(createStar, 400);
+        return;
+      }
+
+      activeShoots++;
+
+      // Create star with better parameters
+      const speed = 1.4 + Math.random() * 1.2; // Speed between 1.4-2.6
+      const size = 1.5 + Math.random() * 3; // Size between 1.5-4.5px
+      const trail = 150 + Math.random() * 100; // Trail between 150-250px
+
+      const newStar = {
+        id: count++,
+        delay: 0,
+        top: Math.random() * 70, // Random vertical position in top 70%
+        left: Math.random() * 40, // Wider horizontal distribution
+        size,
+        rotation: 25 + Math.random() * 35, // More varied rotation between 25-60 degrees
+        speed,
+        trail,
+        color: starColors[Math.floor(Math.random() * starColors.length)],
+      };
+
+      setStars((prev) => [...prev, newStar]);
+
+      // Remove star after animation completes + buffer
+      setTimeout(() => {
+        setStars((prev) => prev.filter((star) => star.id !== newStar.id));
+        activeShoots--;
+      }, (speed + 0.5) * 1000);
+
+      // Schedule next star with more varied timing
+      const nextStarDelay = 800 + Math.random() * 1200; // Between 0.8-2 seconds
+      timerId = setTimeout(createStar, nextStarDelay);
+    };
+
+    // Start multiple stars with staggered timing for a more natural effect
+    timerId = setTimeout(createStar, 500);
+
+    // Start a second star slightly delayed
+    setTimeout(() => {
+      if (activeShoots < maxConcurrentStars) {
+        createStar();
+      }
+    }, 1200);
+
+    return () => {
+      clearTimeout(timerId);
+    };
+  }, []);
 
   // Initialize Lenis for smooth scrolling
   useEffect(() => {
@@ -67,15 +244,34 @@ const HeroSection: React.FC = () => {
     <section
       className={`relative ${
         theme === "dark"
-          ? "bg-gray-900 text-gray-100"
-          : "bg-white text-gray-800"
+          ? "bg-background text-foreground"
+          : "bg-background text-foreground"
       } min-h-screen flex flex-col items-center justify-center w-full overflow-hidden`}
     >
       {/* Subtle background elements with animation */}
       <div className="absolute inset-0 w-full overflow-hidden">
+        {/* Shooting stars */}
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+          <AnimatePresence>
+            {stars.map((star) => (
+              <ShootingStar
+                key={star.id}
+                delay={star.delay}
+                top={star.top}
+                left={star.left}
+                size={star.size}
+                rotation={star.rotation}
+                speed={star.speed}
+                trail={star.trail}
+                color={star.color}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
+
         <motion.div
           className={`absolute top-20 left-10 w-64 h-64 rounded-full ${
-            theme === "dark" ? "bg-orange-900" : "bg-orange-100"
+            theme === "dark" ? "bg-primary/20" : "bg-primary/10"
           } opacity-30 blur-3xl`}
           animate={{
             x: [0, 20, 0],
@@ -89,7 +285,7 @@ const HeroSection: React.FC = () => {
         />
         <motion.div
           className={`absolute bottom-40 right-20 w-96 h-96 rounded-full ${
-            theme === "dark" ? "bg-orange-800" : "bg-orange-50"
+            theme === "dark" ? "bg-primary/20" : "bg-primary/10"
           } opacity-40 blur-3xl`}
           animate={{
             x: [0, -30, 0],
@@ -116,16 +312,15 @@ const HeroSection: React.FC = () => {
             variants={fadeIn}
           >
             Transform your thoughts into{" "}
-            <span className="text-orange-500">beautiful images</span>
+            <span className="text-purple-500">beautiful quotes</span>
           </motion.h1>
           <motion.p
-            className={`text-lg ${
-              theme === "dark" ? "text-gray-300" : "text-gray-600"
-            } max-w-2xl mx-auto mb-10`}
+            className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10"
             variants={fadeIn}
           >
-            Create stunning, shareable quote images with our AI-powered
-            generator. Customize fonts, colors, backgrounds, and more.
+            Create stunning, shareable quote images with Quotica. Customize
+            fonts, colors, backgrounds, and leverage AI-powered design
+            suggestions.
           </motion.p>
 
           <motion.div
@@ -134,9 +329,7 @@ const HeroSection: React.FC = () => {
           >
             <Link
               href="/editor"
-              className={`bg-orange-500 hover:bg-orange-600 text-white font-medium py-3 px-8 rounded-lg transition-all duration-300 flex items-center justify-center shadow-md hover:shadow-lg ${
-                theme === "dark" ? "hover:bg-orange-700" : "hover:bg-orange-600"
-              }`}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-3 px-8 rounded-lg transition-all duration-300 flex items-center justify-center shadow-md hover:shadow-lg"
             >
               <motion.span
                 whileHover={{ scale: 1.05 }}
@@ -158,21 +351,6 @@ const HeroSection: React.FC = () => {
                 </svg>
               </motion.span>
             </Link>
-            <Link
-              href="/examples"
-              className={`${
-                theme === "dark"
-                  ? "bg-gray-800 border-gray-700 hover:border-orange-700 text-gray-200"
-                  : "bg-white border-gray-200 hover:border-orange-200 text-gray-700"
-              } border font-medium py-3 px-8 rounded-lg transition-all duration-300 shadow-sm hover:shadow`}
-            >
-              <motion.span
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                View Examples
-              </motion.span>
-            </Link>
           </motion.div>
         </motion.div>
 
@@ -185,11 +363,7 @@ const HeroSection: React.FC = () => {
           transition={{ duration: 0.8, delay: 0.3 }}
         >
           <motion.div
-            className={`relative ${
-              theme === "dark"
-                ? "bg-gradient-to-r from-gray-800 to-gray-900"
-                : "bg-gradient-to-r from-gray-50 to-white"
-            } p-6 rounded-xl shadow-xl`}
+            className="relative bg-card p-6 rounded-xl shadow-xl"
             whileHover={{
               y: -5,
               boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)",
@@ -213,25 +387,13 @@ const HeroSection: React.FC = () => {
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.5, duration: 0.8 }}
               >
-                <motion.div
-                  className={`${
-                    theme === "dark" ? "bg-gray-900/80" : "bg-white/80"
-                  } backdrop-blur-sm p-6 md:p-8 rounded-lg max-w-md text-center shadow-lg`}
+                {/* <motion.div
+                  className="bg-background/80 backdrop-blur-sm p-6 md:p-8 rounded-lg max-w-md text-center shadow-lg"
                   whileHover={{ scale: 1.03 }}
                   transition={{ type: "spring", stiffness: 400, damping: 10 }}
                 >
-                  <p
-                    className={`text-xl md:text-2xl font-serif italic ${
-                      theme === "dark" ? "text-gray-100" : "text-gray-800"
-                    }`}
-                  >
-                    &quot;The future belongs to those who believe in the beauty
-                    of their dreams.&quot;
-                  </p>
-                  <p className="text-sm md:text-base text-orange-500 mt-2 font-medium">
-                    - Eleanor Roosevelt
-                  </p>
-                </motion.div>
+                  
+                </motion.div> */}
               </motion.div>
             </div>
           </motion.div>
@@ -243,147 +405,97 @@ const HeroSection: React.FC = () => {
           variants={staggerChildren}
         >
           <motion.div
-            className={`${
-              theme === "dark" ? "bg-gray-800" : "bg-white"
-            } p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group`}
+            className="bg-card p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group"
             variants={featureVariants}
             whileHover={{
-              y: -10,
-              boxShadow:
-                "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+              y: -5,
+              transition: { duration: 0.2 },
             }}
           >
-            <div
-              className={`w-12 h-12 ${
-                theme === "dark" ? "bg-orange-900/50" : "bg-orange-50"
-              } rounded-lg flex items-center justify-center mb-5 group-hover:bg-orange-100 transition-colors duration-300`}
-            >
+            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors duration-300">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 text-orange-500"
-                viewBox="0 0 24 24"
+                className="h-6 w-6 text-primary"
                 fill="none"
+                viewBox="0 0 24 24"
                 stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
               >
-                <circle cx="12" cy="12" r="3"></circle>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
               </svg>
             </div>
-            <h3
-              className={`text-lg font-semibold mb-3 group-hover:text-orange-500 transition-colors duration-300 ${
-                theme === "dark" ? "text-white" : "text-gray-800"
-              }`}
-            >
-              AI-Powered Design
-            </h3>
-            <p
-              className={`${
-                theme === "dark" ? "text-gray-300" : "text-gray-600"
-              }`}
-            >
-              Our AI analyzes your quotes to suggest the perfect styles,
-              backgrounds, and color palettes.
+            <h3 className="text-xl font-semibold mb-2">Customizable Design</h3>
+            <p className="text-muted-foreground">
+              Choose from a variety of fonts, colors, and backgrounds to create
+              the perfect quote image that matches your style.
             </p>
           </motion.div>
 
           <motion.div
-            className={`${
-              theme === "dark" ? "bg-gray-800" : "bg-white"
-            } p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group`}
+            className="bg-card p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group"
             variants={featureVariants}
             whileHover={{
-              y: -10,
-              boxShadow:
-                "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+              y: -5,
+              transition: { duration: 0.2 },
             }}
           >
-            <div
-              className={`w-12 h-12 ${
-                theme === "dark" ? "bg-orange-900/50" : "bg-orange-50"
-              } rounded-lg flex items-center justify-center mb-5 group-hover:bg-orange-100 transition-colors duration-300`}
-            >
+            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors duration-300">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 text-orange-500"
-                viewBox="0 0 24 24"
+                className="h-6 w-6 text-primary"
                 fill="none"
+                viewBox="0 0 24 24"
                 stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
               >
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <line x1="9" y1="3" x2="9" y2="21"></line>
-                <line x1="15" y1="3" x2="15" y2="21"></line>
-                <line x1="3" y1="9" x2="21" y2="9"></line>
-                <line x1="3" y1="15" x2="21" y2="15"></line>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 10V3L4 14h7v7l9-11h-7z"
+                />
               </svg>
             </div>
-            <h3
-              className={`text-lg font-semibold mb-3 group-hover:text-orange-500 transition-colors duration-300 ${
-                theme === "dark" ? "text-white" : "text-gray-800"
-              }`}
-            >
-              Endless Customization
+            <h3 className="text-xl font-semibold mb-2">
+              AI-Powered Suggestions
             </h3>
-            <p
-              className={`${
-                theme === "dark" ? "text-gray-300" : "text-gray-600"
-              }`}
-            >
-              Fine-tune every aspect of your quote image with our intuitive
-              editor and extensive options.
+            <p className="text-muted-foreground">
+              Get intelligent design recommendations for backgrounds, color
+              palettes, and font pairings based on your quote.
             </p>
           </motion.div>
 
           <motion.div
-            className={`${
-              theme === "dark" ? "bg-gray-800" : "bg-white"
-            } p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group`}
+            className="bg-card p-6 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 group"
             variants={featureVariants}
             whileHover={{
-              y: -10,
-              boxShadow:
-                "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+              y: -5,
+              transition: { duration: 0.2 },
             }}
           >
-            <div
-              className={`w-12 h-12 ${
-                theme === "dark" ? "bg-orange-900/50" : "bg-orange-50"
-              } rounded-lg flex items-center justify-center mb-5 group-hover:bg-orange-100 transition-colors duration-300`}
-            >
+            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors duration-300">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 text-orange-500"
-                viewBox="0 0 24 24"
+                className="h-6 w-6 text-primary"
                 fill="none"
+                viewBox="0 0 24 24"
                 stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
               >
-                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
-                <polyline points="16 6 12 2 8 6"></polyline>
-                <line x1="12" y1="2" x2="12" y2="15"></line>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
               </svg>
             </div>
-            <h3
-              className={`text-lg font-semibold mb-3 group-hover:text-orange-500 transition-colors duration-300 ${
-                theme === "dark" ? "text-white" : "text-gray-800"
-              }`}
-            >
-              Instant Sharing
-            </h3>
-            <p
-              className={`${
-                theme === "dark" ? "text-gray-300" : "text-gray-600"
-              }`}
-            >
-              Download your creations or share them directly to social media
-              platforms with a single click.
+            <h3 className="text-xl font-semibold mb-2">Export Options</h3>
+            <p className="text-muted-foreground">
+              Download your quotes as high-quality images or share them directly
+              to your social media platforms.
             </p>
           </motion.div>
         </motion.div>

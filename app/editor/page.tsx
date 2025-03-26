@@ -8,6 +8,15 @@ import { QuoteDesign } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import Footer from "@/components/Footer";
+import { Pacifico } from "next/font/google";
+
+// Load the Pacifico font for a calligraphic style
+const pacifico = Pacifico({
+  weight: "400",
+  subsets: ["latin"],
+  display: "swap",
+});
 
 export default function EditorPage() {
   const [design, setDesign] = useState<QuoteDesign>({
@@ -56,7 +65,9 @@ export default function EditorPage() {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             </Link>
-            <span className="text-xl font-bold">Quotify Editor</span>
+            <span className={`text-xl ${pacifico.className} text-primary`}>
+              Quotica Editor
+            </span>
           </div>
         </div>
       </header>
@@ -85,6 +96,7 @@ export default function EditorPage() {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

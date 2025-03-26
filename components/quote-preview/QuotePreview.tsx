@@ -5,28 +5,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { QuoteDesign } from "@/lib/types";
 import { generateImageFromElement } from "@/lib/utils/image-utils";
 import { Button } from "@/components/ui/button";
-import {
-  Download,
-  Share2,
-  Copy,
-  Image as ImageIcon,
-  FileType,
-  Check,
-} from "lucide-react";
+import { Download, Copy, Check, RotateCw, ZoomIn, ZoomOut } from "lucide-react";
 import { toast } from "sonner";
+import { downloadImage, copyImageToClipboard } from "@/lib/utils/image-utils";
+import { Slider } from "@/components/ui/slider";
 import {
-  downloadImage,
-  copyImageToClipboard,
-  shareImage,
-} from "@/lib/utils/image-utils";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 
 interface QuotePreviewProps {
   design: QuoteDesign;
@@ -35,6 +24,9 @@ interface QuotePreviewProps {
 export function QuotePreview({ design }: QuotePreviewProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [zoom, setZoom] = useState(100);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
 
   // Apply background style based on type
   const getBackgroundStyle = () => {
@@ -70,6 +62,8 @@ export function QuotePreview({ design }: QuotePreviewProps) {
       font,
       fontSize,
       fontWeight,
+      fontStyle,
+      textDecoration,
       color,
       alignment,
       textShadow,
@@ -80,6 +74,8 @@ export function QuotePreview({ design }: QuotePreviewProps) {
       fontFamily: font,
       fontSize: `${fontSize}px`,
       fontWeight,
+      fontStyle: fontStyle || "normal",
+      textDecoration: textDecoration || "none",
       color,
       textAlign: alignment,
       textShadow,
@@ -88,14 +84,18 @@ export function QuotePreview({ design }: QuotePreviewProps) {
   };
 
   // Generate image using the utils
-  const handleGenerateImage = async (format = "image/png") => {
+  const handleGenerateImage = async () => {
     if (!canvasRef.current) {
       toast.error("Canvas not available");
       return null;
     }
 
     try {
-      const dataUrl = await generateImageFromElement(canvasRef.current, format);
+      const quality = 0.9;
+      const dataUrl = await generateImageFromElement(
+        canvasRef.current,
+        quality
+      );
       if (!dataUrl) {
         throw new Error("Failed to generate image");
       }
@@ -108,180 +108,205 @@ export function QuotePreview({ design }: QuotePreviewProps) {
   };
 
   // Handle download
-  const handleDownload = async (format = "png") => {
-    let mimeType, extension;
+  const handleDownload = async () => {
+    setIsDownloading(true);
 
-    switch (format) {
-      case "jpg":
-        mimeType = "image/jpeg";
-        extension = "jpg";
-        break;
-      case "svg":
-        mimeType = "image/svg+xml";
-        extension = "svg";
-        break;
-      case "png":
-      default:
-        mimeType = "image/png";
-        extension = "png";
-        break;
+    try {
+      const dataUrl = await handleGenerateImage();
+      if (dataUrl) {
+        const filename =
+          design.quote.text.substring(0, 20).replace(/[^\w\s]/gi, "") +
+          "-quote";
+        downloadImage(dataUrl, `${filename}.png`);
+        toast.success("Image downloaded as PNG");
+      }
+    } catch (error) {
+      console.error("Error downloading image:", error);
+      toast.error("Failed to download image");
+    } finally {
+      setIsDownloading(false);
     }
-
-    const dataUrl = await handleGenerateImage(mimeType);
-    if (!dataUrl) return;
-
-    const filename =
-      design.quote.text.substring(0, 20).replace(/[^\w\s]/gi, "") + "-quote";
-    downloadImage(dataUrl, `${filename}.${extension}`);
-    toast.success(`Image downloaded as ${extension.toUpperCase()}`);
   };
 
   // Handle copy to clipboard
-  const handleCopy = async (format = "png") => {
-    let mimeType;
+  const handleCopy = async () => {
+    setIsCopying(true);
 
-    switch (format) {
-      case "jpg":
-        mimeType = "image/jpeg";
-        break;
-      case "svg":
-        mimeType = "image/svg+xml";
-        break;
-      case "png":
-      default:
-        mimeType = "image/png";
-        break;
-    }
-
-    const dataUrl = await handleGenerateImage(mimeType);
-    if (!dataUrl) return;
-
-    const success = await copyImageToClipboard(dataUrl);
-    if (success) {
-      setCopySuccess(true);
-      setTimeout(() => setCopySuccess(false), 2000);
-      toast.success(`Image copied to clipboard as ${format.toUpperCase()}`);
-    } else {
-      toast.error("Failed to copy to clipboard");
+    try {
+      const dataUrl = await handleGenerateImage();
+      if (dataUrl) {
+        const success = await copyImageToClipboard(dataUrl);
+        if (success) {
+          setCopySuccess(true);
+          setTimeout(() => setCopySuccess(false), 2000);
+          toast.success("Image copied to clipboard as PNG");
+        } else {
+          toast.error("Failed to copy to clipboard");
+        }
+      }
+    } catch (error) {
+      console.error("Error copying image:", error);
+      toast.error("Failed to copy image");
+    } finally {
+      setIsCopying(false);
     }
   };
 
-  // Handle share
-  const handleShare = async () => {
-    const dataUrl = await handleGenerateImage();
-    if (!dataUrl) return;
-
-    const success = await shareImage(dataUrl, "My Quote from Quotify");
-    if (success) {
-      toast.success("Image shared successfully");
-    } else {
-      toast.error("Sharing not supported in this browser");
-    }
+  const handleZoomChange = (values: number[]) => {
+    setZoom(values[0]);
   };
+
+  const resetZoom = () => setZoom(100);
 
   return (
     <Card className="h-full">
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle>Preview</CardTitle>
+        <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setZoom(Math.max(25, zoom - 25))}
+                >
+                  <ZoomOut className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Zoom out</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <div className="w-24">
+            <Slider
+              min={25}
+              max={200}
+              step={25}
+              value={[zoom]}
+              onValueChange={handleZoomChange}
+            />
+          </div>
+
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setZoom(Math.min(200, zoom + 25))}
+                >
+                  <ZoomIn className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Zoom in</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" onClick={resetZoom}>
+                  <RotateCw className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Reset zoom</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </CardHeader>
       <CardContent className="h-[calc(100%-4rem)] flex flex-col">
-        <div className="overflow-hidden rounded-lg border shadow-sm flex-grow">
+        <div className="overflow-auto rounded-lg border shadow-sm flex-grow relative">
           <div
-            ref={canvasRef}
-            className="relative overflow-hidden h-full"
-            style={{
-              width: "100%",
-              aspectRatio: design.size.width / design.size.height,
-              maxWidth: "100%",
-            }}
+            className="flex items-center justify-center min-h-full"
+            style={{ padding: "1rem" }}
           >
-            {/* Background Layer */}
-            <div className="absolute inset-0" style={getBackgroundStyle()} />
-
-            {/* Content Layer */}
             <div
-              className="relative z-10 flex flex-col justify-center items-center h-full"
-              style={{ padding: `${design.padding}px` }}
+              ref={canvasRef}
+              className="relative overflow-hidden"
+              style={{
+                width: `${zoom}%`,
+                aspectRatio: design.size.width / design.size.height,
+                maxWidth: "100%",
+                transition: "all 0.2s ease",
+              }}
             >
-              {/* Quote Text */}
-              <div style={getTextStyle()} className="w-full">
-                <p className="mb-4 whitespace-pre-line">
-                  "{design.quote.text}"
-                </p>
+              {/* Background Layer */}
+              <div className="absolute inset-0" style={getBackgroundStyle()} />
 
-                {/* Author (if provided) */}
-                {design.quote.author && (
-                  <p
-                    className="text-right"
-                    style={{
-                      fontSize: `${Number(design.quoteStyle.fontSize) * 0.8}px`,
-                    }}
-                  >
-                    — {design.quote.author}
+              {/* Content Layer */}
+              <div
+                className="relative z-10 flex flex-col justify-center items-center h-full"
+                style={{ padding: `${design.padding}px` }}
+              >
+                {/* Quote Text */}
+                <div style={getTextStyle()} className="w-full">
+                  <p className="mb-4 whitespace-pre-line">
+                    &quot;{design.quote.text}&quot;
                   </p>
-                )}
+
+                  {/* Author (if provided) */}
+                  {design.quote.author && (
+                    <p
+                      className="text-right"
+                      style={{
+                        fontSize: `${
+                          Number(design.quoteStyle.fontSize) * 0.8
+                        }px`,
+                      }}
+                    >
+                      — {design.quote.author}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
+          </div>
+
+          <div className="absolute bottom-2 right-2">
+            <Badge variant="outline" className="bg-background/80 text-xs">
+              {design.size.width} × {design.size.height}
+            </Badge>
           </div>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 mt-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button className="flex-1 flex items-center justify-center gap-2">
+          <Button
+            className="flex-1 flex items-center justify-center gap-2"
+            disabled={isDownloading}
+            onClick={handleDownload}
+          >
+            {isDownloading ? (
+              <>
+                <RotateCw className="h-4 w-4 animate-spin" /> Processing...
+              </>
+            ) : (
+              <>
                 <Download className="h-4 w-4" /> Download
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuLabel>Download Format</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleDownload("png")}>
-                <ImageIcon className="h-4 w-4 mr-2" /> PNG Image
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleDownload("jpg")}>
-                <ImageIcon className="h-4 w-4 mr-2" /> JPG Image
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleDownload("svg")}>
-                <FileType className="h-4 w-4 mr-2" /> SVG Vector
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="flex-1 flex items-center justify-center gap-2"
-              >
-                {copySuccess ? (
-                  <>
-                    <Check className="h-4 w-4" /> Copied!
-                  </>
-                ) : (
-                  <>
-                    <Copy className="h-4 w-4" /> Copy
-                  </>
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuLabel>Copy Format</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleCopy("png")}>
-                <ImageIcon className="h-4 w-4 mr-2" /> PNG Image
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleCopy("jpg")}>
-                <ImageIcon className="h-4 w-4 mr-2" /> JPG Image
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </>
+            )}
+          </Button>
 
           <Button
-            onClick={handleShare}
             variant="outline"
             className="flex-1 flex items-center justify-center gap-2"
+            disabled={isCopying}
+            onClick={handleCopy}
           >
-            <Share2 className="h-4 w-4" /> Share
+            {isCopying ? (
+              <>
+                <RotateCw className="h-4 w-4 animate-spin" /> Processing...
+              </>
+            ) : (
+              <>
+                {copySuccess ? (
+                  <Check className="h-4 w-4" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}{" "}
+                Copy
+              </>
+            )}
           </Button>
         </div>
       </CardContent>

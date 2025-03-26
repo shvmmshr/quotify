@@ -1,6 +1,6 @@
-# Quotify - Beautiful Quote Image Generator
+# quotica - Beautiful Quote Image Generator
 
-Quotify is a web application that transforms text into beautiful, shareable quote images. With an intuitive interface and AI-powered features, you can create stunning visuals for social media, presentations, or personal use.
+quotica is a web application that transforms text into beautiful, shareable quote images. With an intuitive interface and AI-powered features, you can create stunning visuals for social media, presentations, or personal use.
 
 ## Features
 
@@ -23,46 +23,6 @@ Quotify is a web application that transforms text into beautiful, shareable quot
 - **AI Integration**: OpenAI for natural language processing
 - **Image Generation**: Client-side rendering with html2canvas
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18.0 or later
-- npm or yarn
-
-### Installation
-
-1. Clone the repository:
-
-   ```
-   git clone https://github.com/yourusername/quotify.git
-   ```
-
-2. Navigate to the project directory:
-
-   ```
-   cd quotify
-   ```
-
-3. Install dependencies:
-
-   ```
-   npm install
-   ```
-
-4. Create a `.env.local` file in the root directory and add your OpenAI API key:
-
-   ```
-   OPENAI_API_KEY=your_api_key_here
-   ```
-
-5. Start the development server:
-
-   ```
-   npm run dev
-   ```
-
-6. Open your browser and navigate to `http://localhost:3000`
 
 ## Usage
 

@@ -8,6 +8,8 @@ export interface QuoteStyle {
   font: string;
   fontSize: number;
   fontWeight: string;
+  fontStyle?: string;
+  textDecoration?: string;
   color: string;
   alignment: "left" | "center" | "right";
   textShadow?: string;
