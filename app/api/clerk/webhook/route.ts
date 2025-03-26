@@ -5,7 +5,7 @@ import prisma from "@/lib/prisma";
 
 export async function POST(req: Request) {
   const webhookSecret = process.env.CLERK_WEBHOOK_SECRET!;
-
+  console.log("webhookSecret", webhookSecret);
   if (!webhookSecret) {
     return NextResponse.json(
       { error: "Webhook secret not configured" },
